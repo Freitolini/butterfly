@@ -34,7 +34,7 @@ limitations under the License.
 #define BUTTER_IN1_PIN 22
 #define BUTTER_IN2_PIN 21
 #define VBAT_PIN 34
-
+ 
 #define LASER_PIN 18
 
 #define LEG_A_ENABLE_PIN 4
