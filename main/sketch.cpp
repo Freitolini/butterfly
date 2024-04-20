@@ -25,17 +25,39 @@ limitations under the License.
 #include <Bluepad32.h>
 #include <butterMotor.h>
 #include "esp_sleep.h"
+#include <leds.h>
+#include <legManager.h>
 
+#define LED_PIN 19
+#define LED_COUNT 3
+#define BUTTER_ENABLE_PIN 23
+#define BUTTER_IN1_PIN 22
+#define BUTTER_IN2_PIN 21
+#define VBAT_PIN 34
 
-#define MOTOR_ENABLE_PIN 23
-#define MOTOR_IN1_PIN 22
-#define MOTOR_IN2_PIN 21
+#define LASER_PIN 18
+
+#define LEG_A_ENABLE_PIN 4
+#define LEG_A_IN1_PIN 2
+#define LEG_A_IN2_PIN 15
+#define LEG_B_ENABLE_PIN 16
+#define LEG_B_IN1_PIN 32
+#define LEG_B_IN2_PIN 33
+#define LEG_C_ENABLE_PIN 25
+#define LEG_C_IN1_PIN 26
+#define LEG_C_IN2_PIN 27
+#define LEG_D_ENABLE_PIN 14
+#define LEG_D_IN1_PIN 12
+#define LEG_D_IN2_PIN 13
+
 
 #define DEFAULT_WAKEUP_LEVEL 1
 #define DEFAULT_WAKEUP_PIN  GPIO_NUM_34
 
 ButterMotor *butter;
-
+LedManager *ledManager;
+LegManager *legManager;
+uint16_t vbat;
 //
 // README FIRST, README FIRST, README FIRST
 //
@@ -72,6 +94,8 @@ void onConnectedController(ControllerPtr ctl) {
     if (!foundEmptySlot) {
         Console.println("CALLBACK: Controller connected, but could not found empty slot");
     }
+    BP32.enableNewBluetoothConnections(false);
+    ledManager->setBluetooth(true);
 }
 
 void onDisconnectedController(ControllerPtr ctl) {
@@ -89,6 +113,9 @@ void onDisconnectedController(ControllerPtr ctl) {
     if (!foundController) {
         Console.println("CALLBACK: Controller disconnected, but not found in myControllers");
     }
+    ledManager->setBluetooth(false);
+    BP32.enableNewBluetoothConnections(true);
+    
 }
 
 void dumpGamepad(ControllerPtr ctl) {
@@ -116,54 +143,69 @@ void dumpGamepad(ControllerPtr ctl) {
 }
 
 void processGamepad(ControllerPtr ctl) {
-   butter->process(ctl);
-
+    butter->process(ctl);
+    legManager->process(ctl);
     dumpGamepad(ctl);
 }
 void registerDeepSleep(){
     esp_sleep_enable_ext0_wakeup(DEFAULT_WAKEUP_PIN, DEFAULT_WAKEUP_LEVEL);
 }
 
-
 // Arduino setup function. Runs in CPU 1
 void setup() {
-    registerDeepSleep();
+   // pinMode(VBAT_PIN, INPUT);
+  //  vbat = analogRead(VBAT_PIN);
+    ledManager = new LedManager(LED_PIN,LED_COUNT);
+    ledManager->init();
+  //  registerDeepSleep();
+    BP32.forgetBluetoothKeys();
 
     Console.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
     // Setup the Bluepad32 callbacks
     BP32.setup(&onConnectedController, &onDisconnectedController);
-    BP32.forgetBluetoothKeys();
     BP32.enableVirtualDevice(false);
 
-    butter = new ButterMotor(MOTOR_ENABLE_PIN,MOTOR_IN1_PIN,MOTOR_IN2_PIN);
+    butter = new ButterMotor(ledManager, BUTTER_ENABLE_PIN,BUTTER_IN1_PIN,BUTTER_IN2_PIN);
     butter->init();
+    ledManager->setBluetooth(false);
+    legManager = new LegManager(ledManager,
+    LEG_A_ENABLE_PIN,LEG_A_IN1_PIN,LEG_A_IN2_PIN,
+    LEG_B_ENABLE_PIN,LEG_B_IN1_PIN,LEG_B_IN2_PIN,
+    LEG_C_ENABLE_PIN,LEG_C_IN1_PIN,LEG_C_IN2_PIN,
+    LEG_D_ENABLE_PIN,LEG_D_IN1_PIN,LEG_D_IN2_PIN);
+    legManager->init();
 }
 
 // Arduino loop function. Runs in CPU 1
 void loop() {
     BP32.update();
-
+    //vbat = analogRead(VBAT_PIN);
+    ledManager->setVBat(vbat);
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
         ControllerPtr myController = myControllers[i];
 
         if (myController && myController->isConnected()) {
+            if (myController->isGamepad() && myController->a() && myController->b()) {
+                butter->brakeS();
+                ledManager->setSleep();
+                Console.printf("Entering sleep mode!\n");
+                delay(2000);                
+                esp_deep_sleep_start();
+                continue;
+            }
+
             if (myController->isGamepad()) {
                 processGamepad(myController);
             } else {
                 Console.printf("Data not available yet\n");
                 continue;
             }
-            // See ArduinoController.h for all the available functions.
-            if (myController->isGamepad() && myController->a() && myController->b()) {
-                butter->brakeS();
-                Console.printf("Entering sleep mode!\n");
-                delay(2000);                
-                esp_deep_sleep_start();
-            }
+            
         }
     }
+    ledManager->updateLeds();
 
     delay(150);
 }
