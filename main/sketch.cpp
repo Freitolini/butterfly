@@ -40,12 +40,13 @@ limitations under the License.
 #define LEG_A_ENABLE_PIN 4
 #define LEG_A_IN1_PIN 2
 #define LEG_A_IN2_PIN 15
-#define LEG_B_ENABLE_PIN 16
-#define LEG_B_IN1_PIN 32
-#define LEG_B_IN2_PIN 33
+#define LEG_B_ENABLE_PIN 5
+#define LEG_B_IN1_PIN 17
+#define LEG_B_IN2_PIN 16
+
 #define LEG_C_ENABLE_PIN 25
-#define LEG_C_IN1_PIN 26
-#define LEG_C_IN2_PIN 27
+#define LEG_C_IN1_PIN 32
+#define LEG_C_IN2_PIN 33
 #define LEG_D_ENABLE_PIN 14
 #define LEG_D_IN1_PIN 12
 #define LEG_D_IN2_PIN 13
@@ -143,7 +144,7 @@ void dumpGamepad(ControllerPtr ctl) {
 }
 
 void processGamepad(ControllerPtr ctl) {
-    butter->process(ctl);
+    //butter->process(ctl);
     legManager->process(ctl);
     dumpGamepad(ctl);
 }
@@ -205,7 +206,7 @@ void loop() {
             
         }
     }
-    ledManager->updateLeds();
+    //ledManager->updateLeds();
 
     delay(150);
 }
